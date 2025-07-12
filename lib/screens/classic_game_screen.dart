@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../utils/constants.dart';
 import '../utils/enums.dart';
+import 'game_result_screen.dart';
 
 class ClassicGameScreen extends StatefulWidget {
   const ClassicGameScreen({super.key});
@@ -24,7 +25,20 @@ class _ClassicGameScreenState extends State<ClassicGameScreen> {
       ),
       body: Consumer<GameProvider>(
         builder: (context, gameProvider, child) {
-          if (!_isGameStarted || !gameProvider.isGameActive) {
+          if (gameProvider.gameState.state == GameState.ended) {
+            return GameResultScreen(
+              gameState: gameProvider.gameState,
+              onPlayAgain: () {
+                gameProvider.restartGame();
+              },
+              onBackToSettings: () {
+                gameProvider.backToSettings();
+                setState(() {
+                  _isGameStarted = false;
+                });
+              },
+            );
+          } else if (!_isGameStarted || !gameProvider.isGameActive) {
             return _buildGameSetup(context, gameProvider);
           } else {
             return _buildGamePlay(context, gameProvider);

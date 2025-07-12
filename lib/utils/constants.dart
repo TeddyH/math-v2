@@ -131,7 +131,7 @@ class GameConstants {
   
   // 비행기 게임
   static const double airplaneSpeed = 0.05;
-  static const double fallSpeed = 0.01;
+  static const double fallSpeed = 0.0065;
   static const int wrongAnswersCount = 2;
   static const int backgroundElementsCount = 10;
   
@@ -214,4 +214,25 @@ class AppIcons {
   static const IconData school = Icons.school;
   static const IconData person = Icons.person;
   static const IconData grade = Icons.grade;
+}
+
+/// 앱 이미지 경로
+class AppImages {
+  static const String airplane = 'assets/images/airplane.png';
+  static const String cloud = 'assets/images/cloud.png';
+  static const String bird = 'assets/images/bird.png';
+}
+
+/// 앱 이모지 (임시 이미지 대체용)
+class AppEmojis {
+  static const String airplane = '🛩️';
+  static const String airplane2 = '✈️';
+  static const String rocket = '🚀';
+  static const String helicopter = '🚁';
+  static const String cloud = '☁️';
+  static const String bird = '🐦';
+  static const String star = '⭐';
+  static const String explosion = '💥';
+  static const String sparkles = '✨';
+  static const String rainbow = '🌈';
 }

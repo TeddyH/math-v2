@@ -1,5 +1,5 @@
 name: math_training
-description: "초등학생을 위한 수학 두뇌 트레이닝 앱"
+description: "두뇌트레이닝: 수학 - 재미있는 비행기 게임으로 수학 실력 향상"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -71,9 +71,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/images/
+    - assets/images/vehicles/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

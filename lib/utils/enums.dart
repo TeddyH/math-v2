@@ -26,6 +26,7 @@ enum GameState {
   playing,     // 플레이 중
   paused,      // 일시정지
   gameOver,    // 게임 종료
+  ended,       // 게임 결과 화면
 }
 
 /// 연산 타입 확장

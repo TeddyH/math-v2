@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "733287486043",
+    "project_id": "brain-training-math",
+    "storage_bucket": "brain-training-math.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:733287486043:android:982a4ca5efe097487fa57e",
+        "android_client_info": {
+          "package_name": "com.tenspoon.math_training"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM2C831h_AlvyN5ULUhYUMTlqe3-AiaLA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

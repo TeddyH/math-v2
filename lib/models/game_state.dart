@@ -16,6 +16,7 @@ class GameStateModel extends Equatable {
   final int consecutiveCorrect;
   final OperationType selectedOperation;
   final Difficulty selectedDifficulty;
+  final String selectedVehicle;
   final List<GameScore> gameHistory;
 
   const GameStateModel({
@@ -30,6 +31,7 @@ class GameStateModel extends Equatable {
     this.consecutiveCorrect = 0,
     this.selectedOperation = OperationType.addition,
     this.selectedDifficulty = Difficulty.oneDigit,
+    this.selectedVehicle = 'airplane',
     this.gameHistory = const [],
   });
 
@@ -46,6 +48,7 @@ class GameStateModel extends Equatable {
     int? consecutiveCorrect,
     OperationType? selectedOperation,
     Difficulty? selectedDifficulty,
+    String? selectedVehicle,
     List<GameScore>? gameHistory,
   }) {
     return GameStateModel(
@@ -60,6 +63,7 @@ class GameStateModel extends Equatable {
       consecutiveCorrect: consecutiveCorrect ?? this.consecutiveCorrect,
       selectedOperation: selectedOperation ?? this.selectedOperation,
       selectedDifficulty: selectedDifficulty ?? this.selectedDifficulty,
+      selectedVehicle: selectedVehicle ?? this.selectedVehicle,
       gameHistory: gameHistory ?? this.gameHistory,
     );
   }
@@ -69,11 +73,13 @@ class GameStateModel extends Equatable {
     required GameMode gameMode,
     required OperationType operation,
     required Difficulty difficulty,
+    String? vehicle,
   }) {
     return copyWith(
       mode: gameMode,
       selectedOperation: operation,
       selectedDifficulty: difficulty,
+      selectedVehicle: vehicle,
       state: GameState.playing,
       isGameActive: true,
       currentScore: 0,
@@ -97,9 +103,22 @@ class GameStateModel extends Equatable {
     );
 
     return copyWith(
-      state: GameState.gameOver,
+      state: GameState.ended,
       isGameActive: false,
       gameHistory: [...gameHistory, gameScore],
+    );
+  }
+
+  /// 게임 결과 화면에서 설정으로 돌아가기
+  GameStateModel backToSettings() {
+    return copyWith(
+      state: GameState.waiting,
+      isGameActive: false,
+      currentScore: 0,
+      problemsSolved: 0,
+      consecutiveCorrect: 0,
+      currentLevel: 1,
+      currentProblem: null,
     );
   }
 
@@ -212,6 +231,7 @@ class GameStateModel extends Equatable {
         consecutiveCorrect,
         selectedOperation,
         selectedDifficulty,
+        selectedVehicle,
         gameHistory,
       ];
 

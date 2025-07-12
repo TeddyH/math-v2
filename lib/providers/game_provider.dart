@@ -24,11 +24,15 @@ class GameProvider extends ChangeNotifier {
   final List<CollisionEffect> _collisionEffects = [];
   final List<ScorePopup> _scorePopups = [];
   Timer? _airplaneGameTimer;
+  Timer? _answerSpawnTimer; // 답안 생성 타이머
+  bool _waitingForAnswers = false; // 답안 생성 대기 상태
+  double _currentAnswerSpeed = 0.004; // 현재 답안 떨어지는 속도
 
   // Getters
   GameStateModel get gameState => _gameState;
   double get airplaneX => _airplaneX;
   bool get airplaneFlashing => _airplaneFlashing;
+  bool get waitingForAnswers => _waitingForAnswers;
   List<FallingAnswer> get fallingAnswers => List.unmodifiable(_fallingAnswers);
   List<BackgroundElement> get backgroundElements => List.unmodifiable(_backgroundElements);
   List<CollisionEffect> get collisionEffects => List.unmodifiable(_collisionEffects);
@@ -40,6 +44,7 @@ class GameProvider extends ChangeNotifier {
   MathProblem? get currentProblem => _gameState.currentProblem;
   int get currentScore => _gameState.currentScore;
   int get problemsSolved => _gameState.problemsSolved;
+  double get currentAnswerSpeed => _currentAnswerSpeed;
 
   /// 사용자 설정
   void setUser(UserInfo user) {
@@ -52,12 +57,14 @@ class GameProvider extends ChangeNotifier {
     required GameMode mode,
     required OperationType operation,
     required Difficulty difficulty,
+    String? vehicle,
   }) async {
     // 게임 상태 초기화
     _gameState = _gameState.startGame(
       gameMode: mode,
       operation: operation,
       difficulty: difficulty,
+      vehicle: vehicle,
     );
 
     // 모드별 게임 시작
@@ -100,7 +107,7 @@ class GameProvider extends ChangeNotifier {
   void moveAirplaneLeft() {
     if (!isAirplaneMode || !isGameActive) return;
     
-    _airplaneX = (_airplaneX - 0.05).clamp(0.0, 1.0);
+    _airplaneX = (_airplaneX - 0.025).clamp(0.0, 1.0); // 이동 속도를 절반으로 줄임 (0.05 → 0.025)
     notifyListeners();
   }
 
@@ -108,7 +115,7 @@ class GameProvider extends ChangeNotifier {
   void moveAirplaneRight() {
     if (!isAirplaneMode || !isGameActive) return;
     
-    _airplaneX = (_airplaneX + 0.05).clamp(0.0, 1.0);
+    _airplaneX = (_airplaneX + 0.025).clamp(0.0, 1.0); // 이동 속도를 절반으로 줄임 (0.05 → 0.025)
     notifyListeners();
   }
 
@@ -119,6 +126,7 @@ class GameProvider extends ChangeNotifier {
     _gameState = _gameState.pauseGame();
     _gameTimer?.cancel();
     _airplaneGameTimer?.cancel();
+    _answerSpawnTimer?.cancel();
     notifyListeners();
   }
 
@@ -142,6 +150,22 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 게임 결과 화면에서 설정으로 돌아가기
+  void backToSettings() {
+    _gameState = _gameState.backToSettings();
+    notifyListeners();
+  }
+
+  /// 게임 다시 시작 (같은 설정으로)
+  void restartGame() {
+    startGame(
+      mode: _gameState.mode,
+      operation: _gameState.selectedOperation,
+      difficulty: _gameState.selectedDifficulty,
+      vehicle: _gameState.selectedVehicle,
+    );
+  }
+
   /// 게임 리셋
   void resetGame() {
     _gameState = _gameState.resetGame();
@@ -158,11 +182,22 @@ class GameProvider extends ChangeNotifier {
       _gameState.selectedDifficulty,
     );
 
+    print('📝 새 문제 생성: ${problem.displayProblem} = ${problem.correctAnswer}');
     _gameState = _gameState.setCurrentProblem(problem);
     _problemStartTime = DateTime.now();
     
     if (isAirplaneMode) {
-      _createFallingAnswers(problem);
+      // 비행기 모드에서는 1초 후에 답안 생성
+      _waitingForAnswers = true;
+      _answerSpawnTimer?.cancel();
+      print('⏱️ 답안 생성 대기 시작 (1초)');
+      _answerSpawnTimer = Timer(const Duration(seconds: 1), () {
+        print('🎯 답안 생성 시작');
+        _createFallingAnswers(problem);
+        _waitingForAnswers = false;
+        print('🎯 답안 생성 완료: ${problem.options}');
+        notifyListeners();
+      });
     }
     
     notifyListeners();
@@ -200,6 +235,9 @@ class GameProvider extends ChangeNotifier {
     _fallingAnswers.clear();
     _backgroundElements.clear();
     
+    // 답안 속도 초기화
+    _currentAnswerSpeed = 0.004; // 시작 속도
+    
     // 배경 요소 생성
     final random = Random();
     for (int i = 0; i < 10; i++) {
@@ -207,14 +245,14 @@ class GameProvider extends ChangeNotifier {
         type: ['cloud', 'bird', 'star'][random.nextInt(3)],
         x: random.nextDouble(),
         y: random.nextDouble(),
-        speed: 0.005 + random.nextDouble() * 0.005,
+        speed: 0.0025 + random.nextDouble() * 0.0025, // 배경 요소 속도도 절반으로 줄임
       ));
     }
   }
 
   void _startAirplaneGameLoop() {
     _airplaneGameTimer = Timer.periodic(
-      const Duration(milliseconds: 50),
+      const Duration(milliseconds: 16), // 속도를 절반으로 줄임 (8ms → 16ms, ~60fps)
       (timer) => _updateAirplaneGame(),
     );
   }
@@ -230,31 +268,31 @@ class GameProvider extends ChangeNotifier {
       
       // 비행기와 충돌 확인
       if (_checkCollision(answer)) {
-        // 충돌 효과 생성
-        _createCollisionEffect(answer);
+        // 충돌 로그 (핵심 정보만)
+        print('🚀 충돌 감지! 값: ${answer.value}, 정답: ${answer.isCorrect}, 비행기위치: ${_airplaneX.toStringAsFixed(2)}, 답안위치: ${answer.x.toStringAsFixed(2)}');
         
         if (answer.isCorrect) {
-          // 즉시 효과 먼저 생성
+          print('✅ 정답 충돌 처리 시작');
+          // 간단한 효과만 - 점수 팝업과 햅틱 피드백
           HapticFeedback.lightImpact();
           _createScorePopup(answer.x, answer.y, true);
-          _startAirplaneFlash(true);
           
-          // 비행기 모드에서는 즉시 동기 처리
-          if (isAirplaneMode) {
-            _handleCorrectAnswerSync();
-          } else {
-            _handleCorrectAnswer(const Duration(milliseconds: 100));
-          }
+          // 정답 처리 후 다음 문제로 진행
+          _handleCorrectAnswerSync();
+          // 모든 답안 제거
+          _fallingAnswers.clear();
+          print('✅ 정답 처리 완료, 다음 문제 생성');
+          return; // 즉시 리턴하여 다음 문제 생성
         } else {
+          print('❌ 오답 충돌 처리 시작');
           _handleWrongAnswer();
           // 오답 시 햅틱 피드백
           HapticFeedback.heavyImpact();
           // 오답 효과
           _createScorePopup(answer.x, answer.y, false);
-          // 비행기 부정적 깜빡임
-          _startAirplaneFlash(false);
+          print('❌ 오답 처리 완료, 게임 종료');
+          return; // 게임 종료
         }
-        answersToRemove.add(answer);
       } else if (answer.isOffScreen) {
         answersToRemove.add(answer);
       }
@@ -263,6 +301,13 @@ class GameProvider extends ChangeNotifier {
     // 제거할 답안들 삭제
     for (final answer in answersToRemove) {
       _fallingAnswers.remove(answer);
+    }
+
+    // 모든 답안이 화면 밖으로 나가면 다음 문제 생성 (오답 처리)
+    if (_fallingAnswers.isEmpty && !_waitingForAnswers && currentProblem != null) {
+      print('⏰ 시간 초과 - 모든 답안이 화면 밖으로 나감');
+      _handleWrongAnswer();
+      return;
     }
 
     // 배경 요소 업데이트
@@ -298,22 +343,40 @@ class GameProvider extends ChangeNotifier {
   }
 
   bool _checkCollision(FallingAnswer answer) {
-    const airplaneWidth = 0.1;
-    const airplaneHeight = 0.1;
-    const answerWidth = 0.08;
-    const answerHeight = 0.06;
+    // 충돌 감지 영역을 더욱 크게 조정하여 반응성 증대
+    const airplaneWidth = 0.15;  // 0.12 -> 0.15로 증가
+    const airplaneHeight = 0.15; // 0.12 -> 0.15로 증가
+    const answerWidth = 0.12;    // 0.10 -> 0.12로 증가
+    const answerHeight = 0.10;   // 0.08 -> 0.10으로 증가
     
     const airplaneY = 0.7; // 비행기가 화면 아래쪽에 위치
     
-    return (answer.x < _airplaneX + airplaneWidth &&
-            answer.x + answerWidth > _airplaneX &&
-            answer.y < airplaneY + airplaneHeight &&
-            answer.y + answerHeight > airplaneY);
+    // 충돌 감지 (더 관대한 조건)
+    final collisionDetected = (
+      answer.x + answerWidth > _airplaneX &&
+      answer.x < _airplaneX + airplaneWidth &&
+      answer.y + answerHeight > airplaneY &&
+      answer.y < airplaneY + airplaneHeight
+    );
+    
+    // 프레임마다 모든 답안의 위치를 로그로 출력하여 실시간 추적
+    if (answer.y > 0.6) { // 비행기 근처에 올 때만 로그 출력
+      print('📍 답안 위치 추적: 값=${answer.value}, 위치=(${answer.x.toStringAsFixed(3)}, ${answer.y.toStringAsFixed(3)}), 비행기=(${_airplaneX.toStringAsFixed(3)}, ${airplaneY.toStringAsFixed(3)})');
+    }
+    
+    if (collisionDetected) {
+      print('� 충돌 감지! 값: ${answer.value}, 정답: ${answer.isCorrect}');
+      print('   비행기 영역: x=${_airplaneX.toStringAsFixed(3)}-${(_airplaneX + airplaneWidth).toStringAsFixed(3)}, y=${airplaneY.toStringAsFixed(3)}-${(airplaneY + airplaneHeight).toStringAsFixed(3)}');
+      print('   답안 영역: x=${answer.x.toStringAsFixed(3)}-${(answer.x + answerWidth).toStringAsFixed(3)}, y=${answer.y.toStringAsFixed(3)}-${(answer.y + answerHeight).toStringAsFixed(3)}');
+    }
+    
+    return collisionDetected;
   }
 
   void _createFallingAnswers(MathProblem problem) {
     _fallingAnswers.clear();
     
+    // 3개의 답안을 동시에 떨어뜨리기 위해 동일한 y 위치에서 시작
     final positions = [0.2, 0.5, 0.8]..shuffle();
     
     for (int i = 0; i < problem.options.length; i++) {
@@ -321,20 +384,19 @@ class GameProvider extends ChangeNotifier {
         value: problem.options[i],
         isCorrect: problem.options[i] == problem.correctAnswer,
         x: positions[i],
-        y: -0.3 - (i * 0.3), // 화면 위쪽에서 시작해서 시간차를 두고 떨어지게
+        y: -0.25, // 답안을 더 위에서 시작하여 플레이어가 일찍 볼 수 있도록 함
+        speed: _currentAnswerSpeed, // 현재 게임 속도 사용
       ));
     }
   }
 
   /// 충돌 효과 생성
   void _createCollisionEffect(FallingAnswer answer) {
-    print('Creating collision effect at (${answer.x}, ${answer.y}) - correct: ${answer.isCorrect}');
     _collisionEffects.add(CollisionEffect(
       x: answer.x,
       y: answer.y,
       isCorrect: answer.isCorrect,
     ));
-    print('Total collision effects: ${_collisionEffects.length}');
   }
 
   /// 점수 팝업 생성
@@ -345,7 +407,6 @@ class GameProvider extends ChangeNotifier {
           _gameState.selectedDifficulty
         ) : 0;
     
-    print('Creating score popup at (${x}, ${y}) - correct: ${isCorrect}, points: ${points}');
     _scorePopups.add(ScorePopup(
       x: x,
       y: y,
@@ -353,7 +414,6 @@ class GameProvider extends ChangeNotifier {
       isCorrect: isCorrect,
       combo: _gameState.consecutiveCorrect,
     ));
-    print('Total score popups: ${_scorePopups.length}');
   }
 
   /// 연속 정답 특별 효과 생성
@@ -440,6 +500,9 @@ class GameProvider extends ChangeNotifier {
         .increaseScore(points, isConsecutive: true)
         .solveProblem();
 
+    // 답안 속도 증가 (정답을 맞출 때마다 점진적으로 빨라짐)
+    _currentAnswerSpeed = (_currentAnswerSpeed + 0.0004).clamp(0.004, 0.012); // 더 부드럽게 증가
+
     // 연속 정답 특별 효과
     if (_gameState.consecutiveCorrect >= 3) {
       HapticFeedback.mediumImpact();
@@ -449,7 +512,6 @@ class GameProvider extends ChangeNotifier {
     // 다음 프레임에서 새 문제 생성하여 동시 수정 방지
     Future.microtask(() {
       generateNewProblem();
-      notifyListeners();
     });
   }
 
@@ -470,11 +532,15 @@ class GameProvider extends ChangeNotifier {
     _gameTimer?.cancel();
     _airplaneGameTimer?.cancel();
     _airplaneFlashTimer?.cancel();
+    _answerSpawnTimer?.cancel();
     _gameTimer = null;
     _airplaneGameTimer = null;
     _airplaneFlashTimer = null;
+    _answerSpawnTimer = null;
     _problemStartTime = null;
     _airplaneFlashing = false;
+    _waitingForAnswers = false;
+    _currentAnswerSpeed = 0.004; // 속도 리셋
     _fallingAnswers.clear();
     _backgroundElements.clear();
     _collisionEffects.clear();
@@ -494,13 +560,14 @@ class FallingAnswer {
   final bool isCorrect;
   double x; // 가로 위치
   double y; // 세로 위치 (0.0에서 시작해서 1.0으로)
-  final double speed = 0.01; // 떨어지는 속도
+  final double speed; // 떨어지는 속도 (동적으로 변경됨)
 
   FallingAnswer({
     required this.value,
     required this.isCorrect,
     required this.x,
-    this.y = -0.3,
+    this.y = -0.2,
+    this.speed = 0.004, // 기본 속도
   });
 
   void update() => y += speed; // 아래로 떨어지도록 변경
@@ -556,7 +623,7 @@ class ScorePopup {
   final bool isCorrect;
   final int combo;
   double progress = 0.0;
-  static const double duration = 3.0; // 3초로 늘림
+  static const double duration = 1.5; // 속도 2배 빠르게 (3초 → 1.5초)
 
   ScorePopup({
     required this.x,

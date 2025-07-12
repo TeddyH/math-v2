@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="math_training"
+        android:label="두뇌트레이닝: 수학"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
